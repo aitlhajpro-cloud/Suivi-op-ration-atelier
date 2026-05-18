@@ -1,0 +1,8 @@
+{
+  "name": "Suivi Opérations Atelier",
+  "description": "Générateur de récapitulatifs pour le suivi des opérations d'atelier à partir de Google Sheets. Exportation PDF et Word.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
