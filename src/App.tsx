@@ -6,25 +6,34 @@
 import { useState } from "react";
 import { FileUploader } from "./components/FileUploader";
 import { RecapTable } from "./components/RecapTable";
-import { processWorkshopData, ProcessedData, RawData } from "./lib/dataProcessor";
+import { AvailableMaterialTable } from "./components/AvailableMaterialTable";
+import { processWorkshopData, processAvailableMaterial, ProcessedData, AvailableMaterialData, RawData } from "./lib/dataProcessor";
 import { motion, AnimatePresence } from "motion/react";
-import { LayoutDashboard, Settings, Info, Cloud } from "lucide-react";
+import { LayoutDashboard, Settings, Info, Cloud, ArrowRight, Table } from "lucide-react";
 import { DriveLinkImport } from "./components/DriveLinkImport";
 
-export default function App() {
-  const [rawData, setRawData] = useState<RawData[] | null>(null);
-  const [processedData, setProcessedData] = useState<ProcessedData[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+export interface WorkbookData {
+  workshop: RawData[];
+  available: RawData[];
+}
 
-  const handleDataLoaded = (data: RawData[]) => {
-    setRawData(data);
-    const processed = processWorkshopData(data);
-    setProcessedData(processed);
+export default function App() {
+  const [hasData, setHasData] = useState(false);
+  const [processedWorkshop, setProcessedWorkshop] = useState<ProcessedData[]>([]);
+  const [processedAvailable, setProcessedAvailable] = useState<AvailableMaterialData[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"workshop" | "available">("workshop");
+
+  const handleDataLoaded = (data: WorkbookData) => {
+    setHasData(true);
+    setProcessedWorkshop(processWorkshopData(data.workshop));
+    setProcessedAvailable(processAvailableMaterial(data.available));
   };
 
   const handleReset = () => {
-    setRawData(null);
-    setProcessedData([]);
+    setHasData(false);
+    setProcessedWorkshop([]);
+    setProcessedAvailable([]);
   };
 
   return (
@@ -41,6 +50,23 @@ export default function App() {
           </div>
         </div>
         
+        {hasData && (
+          <div className="flex bg-slate-100 p-1 rounded-xl">
+            <button 
+              onClick={() => setActiveTab("workshop")}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === "workshop" ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Atelier
+            </button>
+            <button 
+              onClick={() => setActiveTab("available")}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === "available" ? 'bg-white text-green-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Matériel Dispo
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center space-x-4">
           <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
             <Settings className="w-5 h-5" />
@@ -48,9 +74,9 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-[1400px] mx-auto p-6 md:p-8">
+      <main className="max-w-[1500px] mx-auto p-6 md:p-8">
         <AnimatePresence mode="wait">
-          {!rawData ? (
+          {!hasData ? (
             <motion.div
               key="uploader"
               initial={{ opacity: 0, y: 10 }}
@@ -59,15 +85,15 @@ export default function App() {
               className="space-y-8"
             >
               <div className="max-w-2xl mx-auto text-center space-y-4 py-8">
-                <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900">
-                  Générez vos rapports d'atelier en un clic.
+                <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 leading-tight">
+                  Gestion centralisée de votre <span className="text-blue-600">Atelier</span> et de votre <span className="text-green-600">Parc</span>.
                 </h2>
                 <p className="text-lg text-slate-600">
-                  Uploadez votre fichier de suivi Google Sheets (export XLSX/CSV) pour regrouper les interventions par affaire et filtrer les dossiers clôturés.
+                  Importez votre fichier Excel contenant les feuilles "SUIVI OP ATELIER" et "MATERIEL DISPONIBLE (archivé)".
                 </p>
               </div>
 
-              <FileUploader 
+              <DriveLinkImport 
                 onDataLoaded={handleDataLoaded} 
                 isLoading={isLoading} 
                 setIsLoading={setIsLoading} 
@@ -79,37 +105,55 @@ export default function App() {
                 <div className="h-px flex-1 bg-slate-300"></div>
               </div>
 
-              <DriveLinkImport 
+              <FileUploader 
                 onDataLoaded={handleDataLoaded} 
                 isLoading={isLoading} 
                 setIsLoading={setIsLoading} 
               />
 
-              <div className="max-w-xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 mt-12">
-                <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-2">
-                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                    <Info className="w-4 h-4 text-green-600" />
+              <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 mt-12">
+                <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <LayoutDashboard className="w-5 h-5 text-blue-600" />
                   </div>
-                  <h3 className="font-bold text-sm">Regroupement intelligent</h3>
+                  <h3 className="font-bold text-base text-slate-900">Suivi Atelier</h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Les interventions et numéros DAI sont automatiquement regroupés par code affaire avec un séparateur ";"
+                    Regroupement des interventions par code affaire, exclusion des dossiers clôturés et calcul automatique des délais.
                   </p>
                 </div>
-                <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-2">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Settings className="w-4 h-4 text-blue-600" />
+                <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                    <Table className="w-5 h-5 text-green-600" />
                   </div>
-                  <h3 className="font-bold text-sm">Filtre automatique</h3>
+                  <h3 className="font-bold text-base text-slate-900">Matériel Disponible</h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Les dossiers avec le statut "Clôturé" sont systématiquement exclus du récapitulatif généré.
+                    Vue d'ensemble du matériel archivé, calcul du temps total de réparation et suivi des affectations actuelles.
+                  </p>
+                </div>
+                <div className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                  <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
+                    <Cloud className="w-5 h-5 text-orange-600" />
+                  </div>
+                  <h3 className="font-bold text-base text-slate-900">Export Multi-format</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Générez instantanément des rapports PDF ou Word de vos tableaux avec application automatique de vos filtres.
                   </p>
                 </div>
               </div>
             </motion.div>
           ) : (
-            <div key="table">
-              <RecapTable data={processedData} onReset={handleReset} />
-            </div>
+            <motion.div 
+              key="table-view"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="space-y-6"
+            >
+              {activeTab === "workshop" ? (
+                <RecapTable data={processedWorkshop} onReset={handleReset} />
+              ) : (
+                <AvailableMaterialTable data={processedAvailable} onReset={handleReset} />
+              )}
+            </motion.div>
           )}
         </AnimatePresence>
       </main>

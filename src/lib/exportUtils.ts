@@ -2,9 +2,9 @@ import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, Bor
 import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { ProcessedData } from "./dataProcessor";
+import { AvailableMaterialData, ProcessedData } from "./dataProcessor";
 
-export async function exportToWord(data: ProcessedData[], visibleColumns: Record<string, boolean>) {
+export async function exportToWord(data: (ProcessedData | AvailableMaterialData)[], visibleColumns: Record<string, boolean>, title: string = "Récapitulatif Situation Atelier") {
   const allColumns = [
     { key: "Code", label: "Code" },
     { key: "Désignation", label: "Désignation" },
@@ -18,6 +18,10 @@ export async function exportToWord(data: ProcessedData[], visibleColumns: Record
     { key: "Date Prévu MO", label: "Date Prévu MO" },
     { key: "Date planifiée", label: "Date planifiée" },
     { key: "MARGE EN (JRS)", label: "MARGE EN (JRS)" },
+    { key: "Jours en Réparation", label: "Jours Réparation" },
+    { key: "Date de disponibilité", label: "Disponibilité" },
+    { key: "Affectation Actuel", label: "Affectation" },
+    { key: "Date D'affectation", label: "Date Affectation" },
   ];
 
   const activeColumns = allColumns.filter(col => visibleColumns[col.key]);
@@ -49,7 +53,7 @@ export async function exportToWord(data: ProcessedData[], visibleColumns: Record
       },
       children: [
         new Paragraph({
-          text: "Récapitulatif Situation Atelier",
+          text: title,
           heading: "Heading1" as any,
           alignment: AlignmentType.CENTER,
           spacing: { after: 400 }
@@ -63,14 +67,15 @@ export async function exportToWord(data: ProcessedData[], visibleColumns: Record
   });
 
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, "Recap_Atelier.docx");
+  const fileName = title.replace(/\s+/g, "_") + ".docx";
+  saveAs(blob, fileName);
 }
 
-export function exportToPDF(data: ProcessedData[], visibleColumns: Record<string, boolean>) {
+export function exportToPDF(data: (ProcessedData | AvailableMaterialData)[], visibleColumns: Record<string, boolean>, title: string = "Récapitulatif Situation Atelier") {
   const doc = new jsPDF("landscape");
   
   doc.setFontSize(18);
-  doc.text("Récapitulatif Situation Atelier", 140, 15, { align: "center" });
+  doc.text(title, 140, 15, { align: "center" });
 
   const allColumns = [
     { key: "Code", label: "Code" },
@@ -85,6 +90,10 @@ export function exportToPDF(data: ProcessedData[], visibleColumns: Record<string
     { key: "Date Prévu MO", label: "Prévu MO" },
     { key: "Date planifiée", label: "Planifiée" },
     { key: "MARGE EN (JRS)", label: "Marge" },
+    { key: "Jours en Réparation", label: "Réparation (j)" },
+    { key: "Date de disponibilité", label: "Dispo" },
+    { key: "Affectation Actuel", label: "Affectation" },
+    { key: "Date D'affectation", label: "Date Aff." },
   ];
 
   const activeColumns = allColumns.filter(col => visibleColumns[col.key]);
@@ -100,6 +109,7 @@ export function exportToPDF(data: ProcessedData[], visibleColumns: Record<string
     headStyles: { fillColor: [41, 128, 185], textColor: 255 },
   });
 
-  doc.save("Recap_Atelier.pdf");
+  const fileName = title.replace(/\s+/g, "_") + ".pdf";
+  doc.save(fileName);
 }
 

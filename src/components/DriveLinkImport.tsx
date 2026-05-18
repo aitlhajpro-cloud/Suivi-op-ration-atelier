@@ -2,11 +2,12 @@ import React, { useState } from "react";
 import { Link2, ExternalLink, Loader2, Copy, Check } from "lucide-react";
 import * as XLSX from "xlsx";
 import { RawData } from "../lib/dataProcessor";
+import { WorkbookData } from "../App";
 
 const DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1K88TlSdwxe-axJHWvH_ERKaJbDSVK5mseYxXkzVo1lQ/edit?gid=1358643693#gid=1358643693";
 
 interface DriveLinkImportProps {
-  onDataLoaded: (data: RawData[]) => void;
+  onDataLoaded: (data: WorkbookData) => void;
   isLoading: boolean;
   setIsLoading: (val: boolean) => void;
 }
@@ -52,16 +53,22 @@ export const DriveLinkImport: React.FC<DriveLinkImportProps> = ({ onDataLoaded, 
       const arrayBuffer = await response.arrayBuffer();
       const wb = XLSX.read(arrayBuffer, { type: "array" });
 
-      // Try to find "SUIVI OP ATELIER" sheet
-      let wsName = wb.SheetNames.find(n => n.toUpperCase() === "SUIVI OP ATELIER");
-      if (!wsName) {
-        wsName = wb.SheetNames[0];
-        console.warn("Sheet 'SUIVI OP ATELIER' not found, using first sheet:", wsName);
+      // Workshop sheet
+      let workshopName = wb.SheetNames.find(n => n.toUpperCase().includes("SUIVI OP ATELIER"));
+      if (!workshopName) {
+        workshopName = wb.SheetNames[0];
+        console.warn("Sheet 'SUIVI OP ATELIER' not found, using first sheet:", workshopName);
+      }
+      const workshopData = XLSX.utils.sheet_to_json(wb.Sheets[workshopName]) as RawData[];
+
+      // Available Material sheet
+      let availableName = wb.SheetNames.find(n => n.toUpperCase().includes("MATERIEL DISPONIBLE"));
+      let availableData: RawData[] = [];
+      if (availableName) {
+        availableData = XLSX.utils.sheet_to_json(wb.Sheets[availableName]) as RawData[];
       }
 
-      const ws = wb.Sheets[wsName];
-      const data = XLSX.utils.sheet_to_json(ws) as RawData[];
-      onDataLoaded(data);
+      onDataLoaded({ workshop: workshopData, available: availableData });
     } catch (error: any) {
       console.error("Link import error:", error);
       alert(error.message || "Une erreur est survenue lors de l'importation via le lien.");

@@ -19,6 +19,40 @@ export interface ProcessedData {
   "Jours en Atelier": string;
 }
 
+export interface AvailableMaterialData {
+  Code: string;
+  Désignation: string;
+  "SOUS FAMILLE": string;
+  "MARQUE/TYPE": string;
+  "Jours en Réparation": string;
+  "Date de disponibilité": string;
+  "Affectation Actuel": string;
+  "Date D'affectation": string;
+}
+
+/**
+ * Calculates number of days between two dates (DD/MM/YYYY)
+ */
+function calculateDaysDiff(startStr: string, endStr: string): number {
+  if (!startStr || !endStr) return 0;
+  try {
+    const p1 = startStr.split("/");
+    const p2 = endStr.split("/");
+    if (p1.length !== 3 || p2.length !== 3) return 0;
+    
+    const start = new Date(parseInt(p1[2], 10), parseInt(p1[1], 10) - 1, parseInt(p1[0], 10));
+    const end = new Date(parseInt(p2[2], 10), parseInt(p2[1], 10) - 1, parseInt(p2[0], 10));
+    
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    
+    const diff = end.getTime() - start.getTime();
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  } catch (e) {
+    return 0;
+  }
+}
+
 /**
  * Calculates number of days between a date (DD/MM/YYYY) and today
  */
@@ -198,5 +232,87 @@ export function processWorkshopData(rawData: RawData[]): ProcessedData[] {
   });
 
   return result;
+}
+
+export function processAvailableMaterial(rawData: RawData[]): AvailableMaterialData[] {
+  // Normalize row keys
+  const normalizedRawData = rawData.map(row => {
+    const newRow: any = {};
+    for (const key in row) {
+      const cleanKey = key.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+      newRow[cleanKey] = row[key];
+    }
+    return newRow;
+  });
+
+  const groupedByCode: { 
+    [code: string]: {
+      items: any[],
+      minStart: string,
+      maxEnd: string
+    } 
+  } = {};
+
+  normalizedRawData.forEach(row => {
+    const code = String(row["Code"] || "").trim();
+    if (!code || code === "undefined") return;
+
+    if (!groupedByCode[code]) {
+      groupedByCode[code] = { items: [], minStart: "", maxEnd: "" };
+    }
+    
+    groupedByCode[code].items.push(row);
+
+    const start = formatExcelDate(row["Date Départ Intervention"] || row["Date Départ"]);
+    const end = formatExcelDate(row["Date Fin opération"] || row["Date fin"] || row["Date Fin"]);
+
+    if (start) {
+      if (!groupedByCode[code].minStart) {
+        groupedByCode[code].minStart = start;
+      } else {
+        const currentMinParts = groupedByCode[code].minStart.split("/");
+        const currentMin = new Date(Number(currentMinParts[2]), Number(currentMinParts[1])-1, Number(currentMinParts[0]));
+        const newStartParts = start.split("/");
+        const newStart = new Date(Number(newStartParts[2]), Number(newStartParts[1])-1, Number(newStartParts[0]));
+        if (newStart < currentMin) groupedByCode[code].minStart = start;
+      }
+    }
+
+    if (end) {
+      if (!groupedByCode[code].maxEnd) {
+        groupedByCode[code].maxEnd = end;
+      } else {
+        const currentMaxParts = groupedByCode[code].maxEnd.split("/");
+        const currentMax = new Date(Number(currentMaxParts[2]), Number(currentMaxParts[1])-1, Number(currentMaxParts[0]));
+        const newEndParts = end.split("/");
+        const newEnd = new Date(Number(newEndParts[2]), Number(newEndParts[1])-1, Number(newEndParts[0]));
+        if (newEnd > currentMax) groupedByCode[code].maxEnd = end;
+      }
+    }
+  });
+
+  return Object.keys(groupedByCode).map(code => {
+    const info = groupedByCode[code];
+    // Sort items by some date to get the "latest" assignment info? 
+    // For now take the first found as a baseline, but maybe the last one in the spreadsheet is more recent.
+    const lastRow = info.items[info.items.length - 1]; 
+    
+    const type = String(lastRow["Type"] || "").trim();
+    const marque = String(lastRow["Marque"] || "").trim();
+    const marqueType = [marque, type].filter(Boolean).join(" / ");
+
+    const days = calculateDaysDiff(info.minStart, info.maxEnd);
+
+    return {
+      Code: code,
+      Désignation: String(lastRow["Désignation"] || lastRow["Designation"] || "").trim(),
+      "SOUS FAMILLE": String(lastRow["SOUS FAMILLE"] || ""),
+      "MARQUE/TYPE": marqueType,
+      "Jours en Réparation": days > 0 ? String(days) : "0",
+      "Date de disponibilité": formatExcelDate(lastRow["Date de disponibilité"] || lastRow["Date Disponibilité"]),
+      "Affectation Actuel": String(lastRow["Affectation Actuel"] || lastRow["Affectation actuelle"] || ""),
+      "Date D'affectation": formatExcelDate(lastRow["Date D'affectation"] || lastRow["Date d'affectation"]),
+    };
+  });
 }
 

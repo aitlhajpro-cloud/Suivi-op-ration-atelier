@@ -2,9 +2,10 @@ import React, { useRef } from "react";
 import { Upload, FileType, FileSpreadsheet } from "lucide-react";
 import * as XLSX from "xlsx";
 import { RawData } from "../lib/dataProcessor";
+import { WorkbookData } from "../App";
 
 interface FileUploaderProps {
-  onDataLoaded: (data: RawData[]) => void;
+  onDataLoaded: (data: WorkbookData) => void;
   isLoading: boolean;
   setIsLoading: (val: boolean) => void;
 }
@@ -26,16 +27,24 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onDataLoaded, isLoad
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: "binary" });
         
-        // Try to find "SUIVI OP ATELIER" sheet
-        let wsName = wb.SheetNames.find(n => n.toUpperCase() === "SUIVI OP ATELIER");
-        if (!wsName) {
-           wsName = wb.SheetNames[0]; // Fallback to first sheet
-           console.warn("Sheet 'SUIVI OP ATELIER' not found, using first sheet:", wsName);
+        // Workshop sheet
+        let workshopName = wb.SheetNames.find(n => n.toUpperCase().includes("SUIVI OP ATELIER"));
+        if (!workshopName) {
+           workshopName = wb.SheetNames[0]; // Fallback to first sheet
+           console.warn("Sheet 'SUIVI OP ATELIER' not found, using first sheet:", workshopName);
+        }
+        const workshopData = XLSX.utils.sheet_to_json(wb.Sheets[workshopName]) as RawData[];
+
+        // Available Material sheet
+        let availableName = wb.SheetNames.find(n => n.toUpperCase().includes("MATERIEL DISPONIBLE"));
+        let availableData: RawData[] = [];
+        if (availableName) {
+           availableData = XLSX.utils.sheet_to_json(wb.Sheets[availableName]) as RawData[];
+        } else {
+           console.warn("Sheet 'MATERIEL DISPONIBLE (archivé)' not found.");
         }
         
-        const ws = wb.Sheets[wsName];
-        const data = XLSX.utils.sheet_to_json(ws) as RawData[];
-        onDataLoaded(data);
+        onDataLoaded({ workshop: workshopData, available: availableData });
       } catch (error) {
         console.error("Error parsing file:", error);
         alert("Erreur lors de la lecture du fichier. Assurez-vous qu'il s'agit d'un fichier Excel valide.");
