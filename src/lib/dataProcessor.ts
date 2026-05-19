@@ -191,6 +191,7 @@ export function processWorkshopData(rawData: RawData[]): ProcessedData[] {
         "Date planifiée": formatExcelDate(row["Date planifiée"]),
         "MARGE EN (JRS)": String(row["MARGE EN (JRS)"] || ""),
         "Date Départ": startDate,
+        "Jours en Atelier": "",
       };
     } else {
       const existing = groupedByCode[code];

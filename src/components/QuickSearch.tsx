@@ -6,10 +6,11 @@ import { motion } from "motion/react";
 interface QuickSearchProps {
   workshopData: ProcessedData[];
   availableData: AvailableMaterialData[];
+  query: string;
+  setQuery: (val: string) => void;
 }
 
-export const QuickSearch: React.FC<QuickSearchProps> = ({ workshopData, availableData }) => {
-  const [query, setQuery] = useState("");
+export const QuickSearch: React.FC<QuickSearchProps> = ({ workshopData, availableData, query, setQuery }) => {
 
   const results = useMemo(() => {
     if (!query.trim() || query.length < 2) return { workshop: [], available: [] };
@@ -18,26 +19,33 @@ export const QuickSearch: React.FC<QuickSearchProps> = ({ workshopData, availabl
     
     // Filter workshop
     const workshopMatches = workshopData.filter(item => {
+      const code = (item.Code || "").toLowerCase();
       const designation = (item.Désignation || "").toLowerCase();
       const sousFamille = (item["SOUS FAMILLE"] || "").toLowerCase();
       const marqueType = (item["MARQUE/TYPE"] || "").toLowerCase();
-      return designation.includes(lowerQuery) || 
+      return code.includes(lowerQuery) ||
+             designation.includes(lowerQuery) || 
              sousFamille.includes(lowerQuery) || 
              marqueType.includes(lowerQuery);
     });
 
     const availableMatches = availableData.filter(item => {
+      const code = (item.Code || "").toLowerCase();
       const designation = (item.Désignation || "").toLowerCase();
       const sousFamille = (item["SOUS FAMILLE"] || "").toLowerCase();
       const marqueType = (item["MARQUE/TYPE"] || "").toLowerCase();
-      return designation.includes(lowerQuery) || 
+      return code.includes(lowerQuery) ||
+             designation.includes(lowerQuery) || 
              sousFamille.includes(lowerQuery) || 
              marqueType.includes(lowerQuery);
     });
 
+    const isAinHallouf = (affect: string) => (affect || "").toUpperCase().includes("AIN HALLOUF");
+
     return {
       workshop: Array.from(new Set(workshopMatches.map(m => m.Code))).sort(),
-      available: Array.from(new Set(availableMatches.map(m => m.Code))).sort()
+      availableAtelier: Array.from(new Set(availableMatches.filter(m => isAinHallouf(m["Affectation Actuel"])).map(m => m.Code))).sort(),
+      availableChantier: Array.from(new Set(availableMatches.filter(m => !isAinHallouf(m["Affectation Actuel"])).map(m => m.Code))).sort()
     };
   }, [workshopData, availableData, query]);
 
@@ -52,8 +60,8 @@ export const QuickSearch: React.FC<QuickSearchProps> = ({ workshopData, availabl
           <Search className="w-5 h-5 text-blue-600" />
         </div>
         <div>
-          <h3 className="text-sm font-bold text-slate-900">Recherche Rapide par Catégorie</h3>
-          <p className="text-xs text-slate-500">Filtrer par Désignation, Sous-Famille ou Type</p>
+          <h3 className="text-sm font-bold text-slate-900">Recherche Rapide (Code Affaire, Désignation...)</h3>
+          <p className="text-xs text-slate-500">Filtrer par Code, Désignation, Sous-Famille ou Type</p>
         </div>
       </div>
 
@@ -79,7 +87,7 @@ export const QuickSearch: React.FC<QuickSearchProps> = ({ workshopData, availabl
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2 text-xs font-bold text-blue-700 uppercase tracking-tight">
                 <Hash className="w-3.5 h-3.5" />
-                <span>À l'Atelier</span>
+                <span>À l'Atelier (En cours)</span>
               </div>
               <div className="px-2 py-0.5 bg-blue-600 text-white rounded-full text-[10px] font-black">
                 {results.workshop.length} {results.workshop.length > 1 ? 'CODES' : 'CODE'}
@@ -94,24 +102,46 @@ export const QuickSearch: React.FC<QuickSearchProps> = ({ workshopData, availabl
             )}
           </div>
 
-          {/* Available Results */}
-          <div className="p-4 bg-green-50/50 rounded-xl border border-green-100 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2 text-xs font-bold text-green-700 uppercase tracking-tight">
-                <Hash className="w-3.5 h-3.5" />
-                <span>Disponible (Archivé)</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Available Atelier Results */}
+            <div className="p-4 bg-orange-50/50 rounded-xl border border-orange-100 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2 text-xs font-bold text-orange-700 uppercase tracking-tight">
+                  <Hash className="w-3.5 h-3.5" />
+                  <span>Disponible à l'Atelier (AIN HALLOUF)</span>
+                </div>
+                <div className="px-2 py-0.5 bg-orange-500 text-white rounded-full text-[10px] font-black">
+                  {results.availableAtelier.length}
+                </div>
               </div>
-              <div className="px-2 py-0.5 bg-green-600 text-white rounded-full text-[10px] font-black">
-                {results.available.length} {results.available.length > 1 ? 'CODES' : 'CODE'}
-              </div>
+              {results.availableAtelier.length > 0 ? (
+                <div className="text-sm font-mono font-medium text-orange-900 break-words bg-white p-3 rounded-lg border border-orange-50 shadow-sm leading-relaxed">
+                  {results.availableAtelier.join(" ; ")}
+                </div>
+              ) : (
+                <div className="text-xs text-slate-400 italic py-1">Aucun code dispo à l'Atelier.</div>
+              )}
             </div>
-            {results.available.length > 0 ? (
-              <div className="text-sm font-mono font-medium text-green-900 break-words bg-white p-3 rounded-lg border border-green-50 shadow-sm leading-relaxed">
-                {results.available.join(" ; ")}
+
+            {/* Available Chantier Results */}
+            <div className="p-4 bg-green-50/50 rounded-xl border border-green-100 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2 text-xs font-bold text-green-700 uppercase tracking-tight">
+                  <Hash className="w-3.5 h-3.5" />
+                  <span>Disponible Chantier (Autres)</span>
+                </div>
+                <div className="px-2 py-0.5 bg-green-600 text-white rounded-full text-[10px] font-black">
+                  {results.availableChantier.length}
+                </div>
               </div>
-            ) : (
-              <div className="text-xs text-slate-400 italic py-1">Aucun code archivé disponible.</div>
-            )}
+              {results.availableChantier.length > 0 ? (
+                <div className="text-sm font-mono font-medium text-green-900 break-words bg-white p-3 rounded-lg border border-green-50 shadow-sm leading-relaxed">
+                  {results.availableChantier.join(" ; ")}
+                </div>
+              ) : (
+                <div className="text-xs text-slate-400 italic py-1">Aucun code dispo en chantier.</div>
+              )}
+            </div>
           </div>
         </motion.div>
       )}

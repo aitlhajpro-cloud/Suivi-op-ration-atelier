@@ -59,6 +59,16 @@ export const AvailableMaterialTable: React.FC<AvailableMaterialTableProps> = ({ 
     });
   }, [data, sortConfig]);
 
+  const ainHalloufData = useMemo(() => 
+    sortedData.filter(item => (item["Affectation Actuel"] || "").toUpperCase().includes("AIN HALLOUF")),
+    [sortedData]
+  );
+
+  const otherData = useMemo(() => 
+    sortedData.filter(item => !(item["Affectation Actuel"] || "").toUpperCase().includes("AIN HALLOUF")),
+    [sortedData]
+  );
+
   const allColumns: { key: ColumnKey; label: string }[] = [
     { key: "Code", label: "Code" },
     { key: "Désignation", label: "Désignation" },
@@ -78,20 +88,92 @@ export const AvailableMaterialTable: React.FC<AvailableMaterialTableProps> = ({ 
     );
   }
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const renderTable = (tableData: AvailableMaterialData[], title: string, colorClass: string) => (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 py-2 px-4 bg-slate-50 rounded-lg border border-slate-200">
+        <div>
+          <h3 className={`text-lg font-bold ${colorClass}`}>{title}</h3>
+          <p className="text-xs text-slate-500">{tableData.length} matériels</p>
+        </div>
+        <div className="flex flex-wrap gap-2 print:hidden">
+          <button 
+            onClick={() => exportToPDF(tableData, visibleColumns, title)}
+            className="flex items-center px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-xs font-medium shadow-sm"
+          >
+            <Download className="w-3.5 h-3.5 mr-1.5" /> PDF
+          </button>
+          <button 
+            onClick={() => exportToWord(tableData, visibleColumns, title)}
+            className="flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs font-medium shadow-sm"
+          >
+            <FileText className="w-3.5 h-3.5 mr-1.5" /> Word
+          </button>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto bg-white rounded-xl border border-gray-200 shadow-sm print:shadow-none print:border-none">
+        <table className="min-w-full divide-y divide-gray-200 text-xs md:text-sm">
+          <thead className="bg-gray-50 sticky top-0 z-10">
+            <tr className="divide-x divide-gray-200">
+              {allColumns.map(col => visibleColumns[col.key] && (
+                <th 
+                  key={col.key}
+                  onClick={() => handleSort(col.key)}
+                  className="px-4 py-3 text-left font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-gray-100 transition-colors group"
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>{col.label}</span>
+                    <span className="text-gray-400 group-hover:text-green-500">
+                      {sortConfig?.key === col.key ? (
+                        sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 opacity-30 group-hover:opacity-100" />
+                      )}
+                    </span>
+                  </div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {tableData.length > 0 ? tableData.map((row, idx) => (
+              <tr key={row.Code + idx} className="hover:bg-gray-50 divide-x divide-gray-200 transition-colors">
+                {visibleColumns.Code && <td className="px-4 py-3 font-mono font-medium">{row.Code}</td>}
+                {visibleColumns.Désignation && <td className="px-4 py-3 min-w-[200px] text-gray-800">{row.Désignation || <span className="text-slate-300 italic">Non spécifié</span>}</td>}
+                {visibleColumns["SOUS FAMILLE"] && <td className="px-4 py-3 whitespace-nowrap">{row["SOUS FAMILLE"]}</td>}
+                {visibleColumns["MARQUE/TYPE"] && <td className="px-4 py-3 whitespace-nowrap">{row["MARQUE/TYPE"]}</td>}
+                {visibleColumns["Jours en Réparation"] && (
+                  <td className="px-4 py-3 whitespace-nowrap text-center font-bold text-slate-600 bg-slate-50/50">
+                    {row["Jours en Réparation"]} j
+                  </td>
+                )}
+                {visibleColumns["Date de disponibilité"] && <td className="px-4 py-3 whitespace-nowrap font-medium text-green-600 bg-green-50/20">{row["Date de disponibilité"]}</td>}
+                {visibleColumns["Affectation Actuel"] && <td className={`px-4 py-3 font-medium ${row["Affectation Actuel"].toUpperCase().includes("AIN HALLOUF") ? 'text-orange-700' : 'text-blue-700'}`}>{row["Affectation Actuel"]}</td>}
+                {visibleColumns["Date D'affectation"] && <td className="px-4 py-3 whitespace-nowrap text-gray-500">{row["Date D'affectation"]}</td>}
+              </tr>
+            )) : (
+              <tr>
+                <td colSpan={allColumns.length} className="px-4 py-8 text-center text-slate-400 italic">
+                  Aucun matériel dans cette catégorie.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
+      className="space-y-8"
     >
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center p-4 bg-white rounded-xl border border-gray-200 shadow-sm gap-4">
         <div>
-          <h2 className="text-xl font-bold text-gray-900 text-green-600">Matériel Disponible (Archivé)</h2>
-          <p className="text-sm text-gray-500">{data.length} matériels répertoriés</p>
+          <h2 className="text-xl font-bold text-gray-900 text-green-600 uppercase tracking-tight">Matériel Disponible (Archivé)</h2>
+          <p className="text-sm text-gray-500">Global: {data.length} matériels répertoriés</p>
         </div>
         <div className="flex flex-wrap gap-2 print:hidden">
           <button 
@@ -101,22 +183,10 @@ export const AvailableMaterialTable: React.FC<AvailableMaterialTableProps> = ({ 
             <Filter className="w-4 h-4 mr-2" /> Colonnes
           </button>
           <button 
-            onClick={() => exportToPDF(sortedData, visibleColumns, "Materiel Disponible")}
-            className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium shadow-sm"
-          >
-            <Download className="w-4 h-4 mr-2" /> PDF
-          </button>
-          <button 
-            onClick={() => exportToWord(sortedData, visibleColumns, "Materiel Disponible")}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm"
-          >
-            <FileText className="w-4 h-4 mr-2" /> Word
-          </button>
-          <button 
-            onClick={handlePrint}
+            onClick={() => window.print()}
             className="flex items-center px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition-colors text-sm font-medium shadow-sm"
           >
-            <Printer className="w-4 h-4 mr-2" /> Imprimer
+            <Printer className="w-4 h-4 mr-2" /> Imprimer Tout
           </button>
         </div>
       </div>
@@ -150,49 +220,9 @@ export const AvailableMaterialTable: React.FC<AvailableMaterialTableProps> = ({ 
         )}
       </AnimatePresence>
 
-      <div className="overflow-x-auto bg-white rounded-xl border border-gray-200 shadow-sm print:shadow-none print:border-none">
-        <table className="min-w-full divide-y divide-gray-200 text-xs md:text-sm">
-          <thead className="bg-gray-50 sticky top-0 z-10">
-            <tr className="divide-x divide-gray-200">
-              {allColumns.map(col => visibleColumns[col.key] && (
-                <th 
-                  key={col.key}
-                  onClick={() => handleSort(col.key)}
-                  className="px-4 py-3 text-left font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-gray-100 transition-colors group"
-                >
-                  <div className="flex items-center space-x-1">
-                    <span>{col.label}</span>
-                    <span className="text-gray-400 group-hover:text-green-500">
-                      {sortConfig?.key === col.key ? (
-                        sortConfig.direction === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
-                      ) : (
-                        <ArrowUpDown className="w-3 h-3 opacity-30 group-hover:opacity-100" />
-                      )}
-                    </span>
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {sortedData.map((row, idx) => (
-              <tr key={row.Code + idx} className="hover:bg-gray-50 divide-x divide-gray-200 transition-colors">
-                {visibleColumns.Code && <td className="px-4 py-3 font-mono font-medium">{row.Code}</td>}
-                {visibleColumns.Désignation && <td className="px-4 py-3 min-w-[200px] text-gray-800">{row.Désignation || <span className="text-slate-300 italic">Non spécifié</span>}</td>}
-                {visibleColumns["SOUS FAMILLE"] && <td className="px-4 py-3 whitespace-nowrap">{row["SOUS FAMILLE"]}</td>}
-                {visibleColumns["MARQUE/TYPE"] && <td className="px-4 py-3 whitespace-nowrap">{row["MARQUE/TYPE"]}</td>}
-                {visibleColumns["Jours en Réparation"] && (
-                  <td className="px-4 py-3 whitespace-nowrap text-center font-bold text-slate-600 bg-slate-50/50">
-                    {row["Jours en Réparation"]} j
-                  </td>
-                )}
-                {visibleColumns["Date de disponibilité"] && <td className="px-4 py-3 whitespace-nowrap font-medium text-green-600 bg-green-50/20">{row["Date de disponibilité"]}</td>}
-                {visibleColumns["Affectation Actuel"] && <td className="px-4 py-3 font-medium text-blue-700">{row["Affectation Actuel"]}</td>}
-                {visibleColumns["Date D'affectation"] && <td className="px-4 py-3 whitespace-nowrap text-gray-500">{row["Date D'affectation"]}</td>}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="space-y-12">
+        {renderTable(ainHalloufData, "Matériel Affecté à AIN HALLOUF", "text-orange-600")}
+        {renderTable(otherData, "Matériel (Autres Affectations)", "text-blue-600")}
       </div>
     </motion.div>
   );

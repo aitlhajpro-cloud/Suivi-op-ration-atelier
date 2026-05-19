@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { FileUploader } from "./components/FileUploader";
 import { RecapTable } from "./components/RecapTable";
 import { AvailableMaterialTable } from "./components/AvailableMaterialTable";
@@ -24,6 +24,37 @@ export default function App() {
   const [processedAvailable, setProcessedAvailable] = useState<AvailableMaterialData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"workshop" | "available">("workshop");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredWorkshop = useMemo(() => {
+    if (!searchQuery.trim() || searchQuery.length < 2) return processedWorkshop;
+    const lowerQuery = searchQuery.toLowerCase().trim();
+    return processedWorkshop.filter(item => {
+      const code = (item.Code || "").toLowerCase();
+      const designation = (item.Désignation || "").toLowerCase();
+      const sousFamille = (item["SOUS FAMILLE"] || "").toLowerCase();
+      const marqueType = (item["MARQUE/TYPE"] || "").toLowerCase();
+      return code.includes(lowerQuery) ||
+             designation.includes(lowerQuery) || 
+             sousFamille.includes(lowerQuery) || 
+             marqueType.includes(lowerQuery);
+    });
+  }, [processedWorkshop, searchQuery]);
+
+  const filteredAvailable = useMemo(() => {
+    if (!searchQuery.trim() || searchQuery.length < 2) return processedAvailable;
+    const lowerQuery = searchQuery.toLowerCase().trim();
+    return processedAvailable.filter(item => {
+      const code = (item.Code || "").toLowerCase();
+      const designation = (item.Désignation || "").toLowerCase();
+      const sousFamille = (item["SOUS FAMILLE"] || "").toLowerCase();
+      const marqueType = (item["MARQUE/TYPE"] || "").toLowerCase();
+      return code.includes(lowerQuery) ||
+             designation.includes(lowerQuery) || 
+             sousFamille.includes(lowerQuery) || 
+             marqueType.includes(lowerQuery);
+    });
+  }, [processedAvailable, searchQuery]);
 
   const handleDataLoaded = (data: WorkbookData) => {
     setHasData(true);
@@ -35,6 +66,7 @@ export default function App() {
     setHasData(false);
     setProcessedWorkshop([]);
     setProcessedAvailable([]);
+    setSearchQuery("");
   };
 
   return (
@@ -151,13 +183,15 @@ export default function App() {
             >
               <QuickSearch 
                 workshopData={processedWorkshop} 
-                availableData={processedAvailable} 
+                availableData={processedAvailable}
+                query={searchQuery}
+                setQuery={setSearchQuery}
               />
               
               {activeTab === "workshop" ? (
-                <RecapTable data={processedWorkshop} onReset={handleReset} />
+                <RecapTable data={filteredWorkshop} onReset={handleReset} />
               ) : (
-                <AvailableMaterialTable data={processedAvailable} onReset={handleReset} />
+                <AvailableMaterialTable data={filteredAvailable} onReset={handleReset} />
               )}
             </motion.div>
           )}
