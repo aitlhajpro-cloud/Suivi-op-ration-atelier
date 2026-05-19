@@ -7,6 +7,7 @@ import { useState } from "react";
 import { FileUploader } from "./components/FileUploader";
 import { RecapTable } from "./components/RecapTable";
 import { AvailableMaterialTable } from "./components/AvailableMaterialTable";
+import { QuickSearch } from "./components/QuickSearch";
 import { processWorkshopData, processAvailableMaterial, ProcessedData, AvailableMaterialData, RawData } from "./lib/dataProcessor";
 import { motion, AnimatePresence } from "motion/react";
 import { LayoutDashboard, Settings, Info, Cloud, ArrowRight, Table } from "lucide-react";
@@ -146,8 +147,13 @@ export default function App() {
               key="table-view"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="space-y-6"
+              className="space-y-8"
             >
+              <QuickSearch 
+                workshopData={processedWorkshop} 
+                availableData={processedAvailable} 
+              />
+              
               {activeTab === "workshop" ? (
                 <RecapTable data={processedWorkshop} onReset={handleReset} />
               ) : (
